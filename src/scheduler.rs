@@ -32,6 +32,11 @@ impl AlertState {
         }
     }
 
+    /// Forget alert history for a task (after it was edited, reopened or deleted).
+    pub fn forget(&mut self, id: u32) {
+        self.last_alerted.retain(|(i, _)| *i != id);
+    }
+
     pub fn is_muted(&self, now: Minute) -> bool {
         matches!(self.mute_until, Some(m) if m > now)
     }
