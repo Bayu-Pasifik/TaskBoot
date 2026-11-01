@@ -17,7 +17,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use win::*;
 use windows_sys::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS, HWND, LPARAM, WPARAM};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
-use windows_sys::Win32::System::Threading::CreateMutexW;
+use windows_sys::Win32::System::Threading::{CreateMutexW, GetCurrentProcess, SetProcessWorkingSetSize};
 use windows_sys::Win32::UI::Shell::NIN_BALLOONUSERCLICK;
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
@@ -111,6 +111,13 @@ pub fn tick(hwnd: HWND) {
         .max(1000) as u32;
     // SAFETY: hwnd is our live hidden window; no callback (WM_TIMER is posted).
     unsafe { SetTimer(hwnd, TIMER_MAIN, ms, None) };
+    trim_memory();
+}
+
+/// Hand unused pages back to the OS so idle working set stays small.
+fn trim_memory() {
+    // SAFETY: (-1, -1) asks Windows to trim the working set of the current process.
+    unsafe { SetProcessWorkingSetSize(GetCurrentProcess(), usize::MAX, usize::MAX) };
 }
 
 fn mute_toggle(hwnd: HWND) {
