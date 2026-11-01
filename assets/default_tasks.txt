@@ -1,4 +1,0 @@
-# TaskBoot default tasks. Create tasks.txt next to taskboot.exe to override.
-Check email
-Review today's priorities
-Stand-up meeting

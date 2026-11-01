@@ -1,50 +1,66 @@
-# TaskBoot — Product Requirements
+# TaskBoot — Product Requirements (v2)
 
-TaskBoot is a single portable .exe (target 150–300 KB, hard limit 1 MB) that shows your job tasks at every Windows login and then idles at 0% CPU and under 10 MB RAM.
+## 1. Product Overview
 
-## Purpose and user
+TaskBoot is a lightweight Windows to-do list that runs from the system tray and alerts you when tasks are near their deadline, past it, or still not done. It is a single portable .exe (under 1 MB) that starts at login and stays resident with near-zero resource use.
 
-One user: you, on your own Windows 10/11 PC. The goal is to see today's tasks the moment you log in, without a heavyweight to-do app slowing startup or sitting in memory.
+## 2. User Persona and Goal
 
-## Core features
+- **User:** One knowledge worker (you) on a personal Windows 10/11 PC, juggling several job tasks with deadlines.
+- **Goal:** Never miss a deadline or forget an unfinished task, without opening a heavy app or checking a list manually.
+
+## 3. Core Features
+
+### 3.1 Task list
 
 | ID | Feature | Behavior |
 | --- | --- | --- |
-| F1 | Auto-start | Registers under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` on first run. Per-user, no admin rights. |
-| F2 | Login reminder | Tray icon plus a balloon notification (rendered as a toast on 10/11): title "N tasks today", body = first task. |
-| F3 | Task window | Click balloon or tray icon → small fixed window (360×420 px) listing all tasks, with a Dismiss button. |
-| F4 | Task source | `tasks.txt` next to the .exe, one task per line, `#` lines ignored. Missing file → compiled-in default list. |
-| F5 | Tray menu | Show Tasks, Edit Tasks (opens tasks.txt in Notepad), Auto-start on/off, Exit. |
-| F6 | Single instance | Named mutex; a second launch exits silently. |
+| F1 | Add / edit / delete | Small window: title (required), deadline date + time (optional). |
+| F2 | Mark done | Checkbox; done tasks move to the bottom and stop alerting. |
+| F3 | Views | Overdue (red) first, then by nearest deadline, then no deadline. |
+| F4 | Storage | `tasks.txt` beside the .exe, human-editable, e.g. `[ ] 2026-11-03 17:00 \| Send report`. |
 
-Out of scope for v1: task completion tracking, scheduling by date, sync, multiple users.
+### 3.2 Alarm and warning system (priority feature)
 
-## Non-functional requirements
-
-| Requirement | Target | How it is met |
+| ID | Trigger | Alert |
 | --- | --- | --- |
-| Binary size | < 1 MB (aim 150–300 KB) | Raw Win32, size-optimized release profile, stripped |
-| Idle memory | < 10 MB working set (expect 2–4 MB) | No framework runtime, one hidden window, small allocations |
-| Idle CPU | 0% | Blocking `GetMessageW` loop, no timers or polling |
-| Startup | Tray + balloon < 200 ms after launch | No network, one small file read |
-| Dependencies | Rust std + `windows-sys` only | `embed-resource` allowed as a build-dependency (not shipped) |
+| A1 | Deadline approaching (default 15 min before) | Notification: task title + time left. |
+| A2 | Deadline passed, not done | Notification **and** sound; tray icon turns red. |
+| A3 | Still overdue | Repeats every 30 min (configurable) until done or snoozed. |
+| A4 | Open tasks without deadline | One summary reminder at login and at 16:00 daily. |
+| A5 | Missed while PC was off/asleep | All missed alerts shown as one summary on login or resume. |
 
-## GUI library decision
+Alert actions: **Mark done**, **Snooze** (10 min / 1 h / tomorrow), **Open list**. Clicking the notification opens the task window.
 
-Use raw Win32 through `windows-sys`, not `winit`. winit only creates windows: no tray icon, notifications or native controls, so Win32 calls are needed anyway, and it adds roughly 300 KB+. `windows-sys` is zero-cost FFI with no runtime. If a richer UI is wanted later, `native-windows-gui` is the next step up, at a clear size cost.
+### 3.3 Supporting features
 
-## Constraints
+- Auto-start at login (per-user Run key), with toggle in the tray menu.
+- Tray menu: Open list, Add task, Mute alerts for 1 h, Auto-start on/off, Exit.
+- Single instance via named mutex.
 
-- Windows 10 and 11, x86_64, MSVC toolchain.
-- No installer: one .exe, optional `tasks.txt` beside it.
-- CRT statically linked, so no VC++ redistributable is needed.
-- Runs at user login (the Run key), which is "on boot" for a desktop user.
+## 4. Non-Functional Requirements
 
-## Assumptions and open decisions
+| Area | Requirement |
+| --- | --- |
+| Reliability | Alert fires within 60 s of its scheduled time while the app runs; no alert lost across sleep, restart or crash. |
+| Data safety | Saves are atomic (write temp file, then rename); a malformed line is skipped, never deletes data. |
+| Performance | 0% CPU between alerts: one OS timer set to the next due event, no polling. Idle RAM < 10 MB. |
+| Size | Single .exe < 1 MB, no installer, no runtime dependencies. |
+| Platform | Windows 10/11 x86_64, Rust + `windows-sys` (raw Win32). |
+| Visibility | If Focus Assist suppresses a notification, the red tray icon and login summary still show it. |
 
-- **"On boot" means at login.** The Run key fires when you sign in. A reminder before login would need a Windows service, which cannot show UI on your desktop.
-- **GUI = raw Win32 via `windows-sys`.** Chosen for size and because tray and notifications are Win32 anyway. Revisit only if the UI grows beyond a list and a few buttons.
-- **Balloon, not a full WinRT toast.** `NIF_INFO` balloons render as toasts on 10/11 with no extra dependency. Rich toasts (buttons, images) would need the `windows` crate and an AppUserModelID, adding size.
-- **`windows-sys` version 0.59.** Check the latest on crates.io at Step 1; the feature names match the 0.5x series.
-- **Tasks are plain text, read once at launch.** No live reload; edits apply on the next login or manual relaunch.
-- **x86_64 MSVC only.** ARM64 Windows would need a second build target.
+## 5. Assumptions and Constraints
+
+**Assumptions (not stated in the original):**
+
+- One user, one PC; no sync, accounts or mobile app.
+- "Incomplete" means not marked done; tasks without a deadline get only the daily summary (A4), not repeated alarms.
+- Deadlines use local time; no recurring tasks or priorities in v1.
+- Alert defaults (15 min, 30 min, 16:00) are editable in a `[settings]` block in `tasks.txt`.
+- Notifications use Win32 balloons (shown as toasts on 10/11); action buttons appear in the task window if the balloon cannot host them.
+
+**Constraints:**
+
+- The app must stay running in the tray to alert; it cannot alert while the PC is off (covered by A5).
+- No network access, telemetry or cloud storage.
+- Must remain under 1 MB and 10 MB RAM.
