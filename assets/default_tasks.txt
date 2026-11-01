@@ -1,0 +1,9 @@
+# TaskBoot task list. Safe to edit by hand while TaskBoot is running.
+# Task format:  [ ] YYYY-MM-DD HH:MM | Title | snooze=YYYY-MM-DD HH:MM
+# Use [x] for done. Leave the date empty for a task without deadline.
+[settings]
+lead_minutes=15
+repeat_minutes=30
+daily_summary=16:00
+
+[ ] | Try TaskBoot: add a task from the tray menu
