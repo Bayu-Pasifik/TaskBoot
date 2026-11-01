@@ -1,7 +1,7 @@
 //! tasks.txt parsing, serialization and atomic persistence. No Win32.
 
 use crate::clock;
-use crate::model::{Line, Minute, Settings, Status, Task};
+use crate::model::{Line, Settings, Status, Task};
 use crate::win::{Error, Result};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -161,8 +161,9 @@ pub fn changed_on_disk() -> bool {
     }
 }
 
-/// Minute helper used by tests and editors.
-pub fn minute(s: &str) -> Option<Minute> {
+/// Minute helper used by tests.
+#[cfg(test)]
+pub fn minute(s: &str) -> Option<crate::model::Minute> {
     clock::parse(s)
 }
 

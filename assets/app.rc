@@ -1,3 +1,4 @@
 #define RT_MANIFEST 24
 1 ICON "app.ico"
+2 ICON "app_alert.ico"
 1 RT_MANIFEST "app.manifest"

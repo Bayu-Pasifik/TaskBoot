@@ -129,6 +129,19 @@ pub fn now_local() -> Minute {
         .unwrap_or(Minute(0))
 }
 
+/// Seconds elapsed in the current local minute (0-59).
+pub fn seconds_into_minute() -> u32 {
+    use windows_sys::Win32::Foundation::SYSTEMTIME;
+    use windows_sys::Win32::System::SystemInformation::GetLocalTime;
+    // SAFETY: SYSTEMTIME is plain data; GetLocalTime fills it.
+    let st: SYSTEMTIME = unsafe {
+        let mut st = core::mem::zeroed();
+        GetLocalTime(&mut st);
+        st
+    };
+    st.wSecond as u32
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
